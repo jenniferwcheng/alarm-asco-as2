@@ -1,12 +1,16 @@
 #include <DS3231.h>
 #include <LiquidCrystal.h>
-//#include <DateTime.h>
-//#include <DateTimeStrings.h>
+#include <DateTime.h>
+#include <DateTimeStrings.h>
 
 // Pressor sensor analog pins
 const int FSR_PIN1 = A0; // Pin connected to FSR/resistor divider
 const int FSR_PIN2 = A2;
 const int FSR_PIN3 = A1;
+
+// Pressure sensor constants
+const float VCC = 5; // Measured voltage of Ardunio 5V line
+const float R_DIV = 10000.0; // Resistance of 10k resistor
 
 // Init the DS3231 using the hardware interface
 DS3231  rtc(SDA, SCL); // SDA: 20, SCL: 21
@@ -19,19 +23,27 @@ const int hourPin = A15; // Potentiometer
 const int minPin = A14; // Potentiometer
 const int CONFIRM = 52; // Button
 
-// Booleans for clock
+// Booleans for alarm setting
 bool timeSet = false;
 bool hourSet = false;
 bool minuteSet = false;
 bool alarmSet = false;
+bool onBed = false;
 
-// Constants
-int hourTemp = 0;
-int hourVal = 0;
-int minTemp = 0;
-int minVal = 0;
+// Clock Constants
+int hourTime = 0;
+int minTime = 0;
+
+// Alarm constants
 int hourAlarm = 0;
 int minAlarm = 0;
+
+// Temp variables
+int hourTemp = 0;
+int minTemp = 0;
+
+// Buzzer
+const int buzzer = 40; // Pin
 
 void setup()
 {  
@@ -39,6 +51,10 @@ void setup()
   pinMode(ALARM, INPUT);
   pinMode(hourPin, INPUT);
   pinMode(minPin, INPUT);
+  pinMode(FSR_PIN1, INPUT);
+  pinMode(FSR_PIN2, INPUT);
+  pinMode(FSR_PIN3, INPUT);
+  pinMode(buzzer, OUTPUT);
   
   // Set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
@@ -71,19 +87,26 @@ void loop()
 {
   lcd.clear();
 
-  // Print time to LCD
+  // Print current time to LCD
   DateTime t = rtc.getTimeStr();
   lcd.print(rtc.getTimeStr());
+
+  // See if user wants to set new alarm
+  if(digitalRead(CONFIRM) == HIGH){
+      setAlarm();
+    }
   
  /* Serial.print(rtc.getDOWStr());
     Serial.print(rtc.getDateStr());
     Serial.println(rtc.getTimeStr());*/
 
-  // set the cursor to column 0, line 1
-  // (note: line 1 is the second row, since counting begins with 0):
-  //lcd.setCursor(0, 1);
+  // If current time = alarm time, set off the alarm
+  DateTime now = rtc.now();
+  if (now.hour() == hourAlarm && now.minute() == minAlarm){
+    startAlarm();
+  }
 
-  delay (1000);
+  delay (100);
 }
 
 void setCurrTime(){
@@ -94,29 +117,33 @@ void setCurrTime(){
     
     // Read values from potentiometers
     hourTemp = analogRead(hourPin);
-    hourVal = map(hourTemp, 0, 1023, 0, 28) - 4;
+    hourTime = map(hourTemp, 0, 1023, 0, 28) - 4;
     minTemp = analogRead(minPin);
-    minVal = map(minTemp, 0, 1023, 0, 71)-11;
+    minTime = map(minTemp, 0, 1023, 0, 71) - 11;
 
     // Display on lcd
     lcd.clear();
-    if(hourVal < 10){
+    if(hourTime < 10){
       lcd.print(0);
     }
-    lcd.print(hourVal);
+    lcd.print(hourTime);
     lcd.print(":");
-    if(minVal < 10){
+    if(minTime < 10){
       lcd.print(0);
     }
-    lcd.print(minVal);
+    lcd.print(minTime);
     delay(200);
   }
 
   // Set time when out of loop
-  rtc.setTime(hourVal, minVal, 0);
+  rtc.setTime(hourTime, minTime, 0);
 }
 
 void setAlarm(){
+  lcd.clear();
+  lcd.print('Set an alarm:');
+  delay(3000);
+  
   while(alarmSet == false){
     if(digitalRead(CONFIRM) == HIGH){
       timeSet = true;
@@ -150,4 +177,54 @@ void setAlarm(){
   }
   lcd.print(minAlarm);
   delay(3000);
+}
+
+void startAlarm(){
+  unsigned long StartTime = millis();
+  unsigned long CurrentTime = 0;
+  unsigned long ElaspedTime = 0;
+  while(onBed){ 
+    // Time elapsed since alarm started
+    CurrentTime = millis();
+    ElapsedTime = CurrentTime - StartTime;
+
+    // Less than 5 minutes
+    if(ElapsedTime < 300000){
+      // Buzzer
+      tone(buzzer, 1000); // Send 1KHz sound signal...
+      delay(1000);        
+      noTone(buzzer);     // Stop sound...
+      delay(1000); 
+    }
+    else if(ElapsedTime >= 300000){
+      // other stuff
+    }
+  }
+}
+
+// Checks if user is on bed based on pressure sensor data
+bool onBed(){
+  onBed = false;
+
+  // Read resistance data
+  int fsrADC1 = analogRead(FSR_PIN1);
+
+  // If the FSR has no pressure, the resistance will be
+  // near infinite. So the voltage should be near 0.
+  if (fsrADC1 != 0) // If the analog reading is non-zero
+  {
+    // Use ADC reading to calculate voltage:
+    float fsrV = fsrADC1 * VCC / 1023.0;
+    // Use voltage and static resistor value to 
+    // calculate FSR resistance:
+    float fsrR = R_DIV * (VCC / fsrV - 1.0);
+    //Serial.print("Resistance 1: " + String(fsrR) + " ohms | ");
+    delay(50);
+  }
+  
+  if(fsrR < 6000){
+    onBed = true;
+  }
+
+  return onBed;
 }
