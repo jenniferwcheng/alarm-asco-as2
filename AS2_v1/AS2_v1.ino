@@ -105,8 +105,14 @@ void loop()
   // See if user wants to set new alarm
   if(digitalRead(CONFIRM) == HIGH){
       setAlarm();
+      lcd.clear();
+      lcd.print("Alarm was set.");
+      delay(2000);
   }
 
+  // Check if current time matches alarm time
+  rtc.attachInterrupt(startAlarm);
+  
   delay (1000);
 
 }
@@ -178,6 +184,10 @@ void setAlarm(){
     lcd.print(0);
   }
   lcd.print(minAlarm);
+
+  //Set alarm on RTC
+  rtc.setAlarmTime(hourAlarm, minAlarm, 0);
+  rtc.enableAlarm(rtc.MATCH_HHMMSS);
   delay(3000);
 }
 
