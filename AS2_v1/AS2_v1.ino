@@ -5,12 +5,17 @@
 const int FSR_PIN1 = A0; // Pin connected to FSR/resistor divider
 const int FSR_PIN2 = A2;
 const int FSR_PIN3 = A1;
+const int FSR_PIN4 = A3;
+const int FSR_PIN5 = A4;
 
 // Pressure sensor constants
 const float VCC = 5; // Measured voltage of Ardunio 5V line
 const float R_DIV = 10000.0; // Resistance of 10k resistor
-float fsrR;
-float fsrV;
+float fsrR1; float fsrV1; 
+float fsrR2; float fsrV2;
+float fsrR3; float fsrV3; 
+float fsrR4; float fsrV4;
+float fsrR5; float fsrV5; 
 
 // Init the DS3231 using the hardware interface
 DS3231  rtc(SDA, SCL); // SDA: 20, SCL: 21
@@ -28,7 +33,6 @@ bool timeSet = false;
 bool hourSet = false;
 bool minuteSet = false;
 bool alarmSet = false;
-bool onBed = false;
 
 // Clock Constants
 int hourTime = 0;
@@ -55,6 +59,8 @@ void setup()
   pinMode(FSR_PIN1, INPUT);
   pinMode(FSR_PIN2, INPUT);
   pinMode(FSR_PIN3, INPUT);
+  pinMode(FSR_PIN4, INPUT);
+  pinMode(FSR_PIN5, INPUT);
   pinMode(buzzer, OUTPUT);
   
   // Set up the LCD's number of columns and rows:
@@ -91,7 +97,7 @@ void setup()
 void loop()
 {
   lcd.clear();
-
+  
   // Get data from the DS3231
   t = rtc.getTime();
 
@@ -110,9 +116,9 @@ void loop()
       delay(2000);
   }
 
-  // Check if current time matches alarm time
-  rtc.attachInterrupt(startAlarm);
-  
+  if(alarmMatch()){
+    startAlarm();
+  }
   delay (1000);
 
 }
@@ -186,9 +192,16 @@ void setAlarm(){
   lcd.print(minAlarm);
 
   //Set alarm on RTC
-  rtc.setAlarmTime(hourAlarm, minAlarm, 0);
-  rtc.enableAlarm(rtc.MATCH_HHMMSS);
+  //rtc.setAlarmTime(hourAlarm, minAlarm, 0);
+  //rtc.enableAlarm(rtc.MATCH_HHMMSS);
   delay(3000);
+}
+
+bool alarmMatch(){
+  if(t.hour == hourAlarm && t.min == minAlarm){
+    return true;
+  }
+  return false;
 }
 
 void startAlarm(){
@@ -201,14 +214,14 @@ void startAlarm(){
     ElapsedTime = CurrentTime - StartTime;
 
     // Less than 5 minutes
-    if(ElapsedTime < 300000){
+    while(ElapsedTime < 300000){
       // Buzzer
       tone(buzzer, 1000); // Send 1KHz sound signal...
       delay(1000);        
       noTone(buzzer);     // Stop sound...
       delay(1000); 
     }
-    else if(ElapsedTime >= 300000){
+    while(ElapsedTime >= 300000 && ElapsedTime < 100000000){
       // other stuff
     }
   }
@@ -216,27 +229,55 @@ void startAlarm(){
 
 // Checks if user is on bed based on pressure sensor data
 bool isOnBed(){
-  onBed = false;
-
-  // Read resistance data
   int fsrADC1 = analogRead(FSR_PIN1);
-
-  // If the FSR has no pressure, the resistance will be
-  // near infinite. So the voltage should be near 0.
+  int fsrADC2 = analogRead(FSR_PIN2);
+  int fsrADC3 = analogRead(FSR_PIN3);
+  int fsrADC4 = analogRead(FSR_PIN4);
+  int fsrADC5 = analogRead(FSR_PIN5);
+  
   if (fsrADC1 != 0) // If the analog reading is non-zero
   {
-    // Use ADC reading to calculate voltage:
-    fsrV = fsrADC1 * VCC / 1023.0;
-    // Use voltage and static resistor value to 
-    // calculate FSR resistance:
-    fsrR = R_DIV * (VCC / fsrV - 1.0);
+    fsrV1 = fsrADC1 * VCC / 1023.0;
+    fsrR1 = R_DIV * (VCC / fsrV1 - 1.0);
+    //Serial.print("Resistance 1: " + String(fsrR) + " ohms | ");
+    delay(50);
+  }
+
+  if (fsrADC2 != 0) // If the analog reading is non-zero
+  {
+    fsrV2 = fsrADC2 * VCC / 1023.0;
+    fsrR2 = R_DIV * (VCC / fsrV2 - 1.0);
+    //Serial.print("Resistance 1: " + String(fsrR) + " ohms | ");
+    delay(50);
+  }
+
+  if (fsrADC3 != 0) // If the analog reading is non-zero
+  {
+    fsrV3 = fsrADC3 * VCC / 1023.0;
+    fsrR3 = R_DIV * (VCC / fsrV3 - 1.0);
+    //Serial.print("Resistance 1: " + String(fsrR) + " ohms | ");
+    delay(50);
+  }
+
+  if (fsrADC4 != 0) // If the analog reading is non-zero
+  {
+    fsrV4 = fsrADC4 * VCC / 1023.0;
+    fsrR4 = R_DIV * (VCC / fsrV4 - 1.0);
+    //Serial.print("Resistance 1: " + String(fsrR) + " ohms | ");
+    delay(50);
+  }
+
+  if (fsrADC5 != 0) // If the analog reading is non-zero
+  {
+    fsrV5 = fsrADC5 * VCC / 1023.0;
+    fsrR5 = R_DIV * (VCC / fsrV5 - 1.0);
     //Serial.print("Resistance 1: " + String(fsrR) + " ohms | ");
     delay(50);
   }
   
-  if(fsrR < 6000){
-    onBed = true;
+  if(fsrR1 < 3000 || fsrR2 < 3000 || fsrR3 < 3000 || fsrR4 < 3000 || fsrR5 <  3000){
+    return true;
   }
 
-  return onBed;
+  return false;
 }
