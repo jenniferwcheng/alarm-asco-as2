@@ -128,17 +128,7 @@ void setup()
 
 void loop()
 {
-  lcd.clear();
-  
-  // Get data from the DS3231
-  t = rtc.getTime();
-
-  lcd.clear();
-  lcd.print(t.hour, DEC);
-  lcd.print(":");
-  lcd.print(t.min, DEC);
-  lcd.print(":");
-  lcd.print(t.sec, DEC);
+  displayTime();
 
   // See if user wants to set new alarm
   if(digitalRead(CONFIRM) == HIGH){
@@ -228,6 +218,20 @@ void setAlarm(){
   delay(3000);
 }
 
+void displayTime(){
+  lcd.clear();
+  
+  // Get data from the DS3231
+  t = rtc.getTime();
+
+  lcd.clear();
+  lcd.print(t.hour, DEC);
+  lcd.print(":");
+  lcd.print(t.min, DEC);
+  lcd.print(":");
+  lcd.print(t.sec, DEC);
+}
+
 bool alarmMatch(){
   if(t.hour == hourAlarm && t.min == minAlarm){
     return true;
@@ -247,11 +251,12 @@ void startAlarm(){
   unsigned long ElapsedTime = 0;
   
   while(isOnBed){ 
+    displayTime();
     // Time elapsed since alarm started
     CurrentTime = millis();
     ElapsedTime = CurrentTime - StartTime;
 
-    while(ElapsedTime < 300000){ // 5 min
+    if(ElapsedTime < 300000){ // 5 min
       // Buzzer
       tone(buzzer, 1000); // kHz
       delay(1000);        
@@ -262,7 +267,7 @@ void startAlarm(){
       blanket.setSpeed(200); // rpm
       blanket.step(stepBlanket);
     }
-    while(ElapsedTime >= 300000 && ElapsedTime < 600000){ // 10 minutes
+    else if(ElapsedTime >= 300000 && ElapsedTime < 600000){ // 10 minutes
       // Buzzer
       tone(buzzer, 3000); // kHz
       delay(500);        
@@ -322,7 +327,7 @@ void startAlarm(){
         digitalWrite(inSpray1, LOW);
       }
     }
-    while(ElapsedTime >= 900000){ // 15 minutes
+    else(ElapsedTime >= 900000){ // 15 minutes
       // Buzzer
       tone(buzzer, 7000); // Send kHz
       delay(100);        
