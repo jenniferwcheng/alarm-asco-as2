@@ -6,15 +6,19 @@
 const int PUL = 4;
 const int DIR = 5;
 const int ENA = 6;
-
+  
 // Stepper motor: slapper 
 const int stepsSlapper = 100; // Steps/rev
-Stepper slapper(stepsSlapper, 8,9,10,11);
+Stepper slapper(stepsSlapper, 4,5,6,7);
 
 // Slapper variables
 int xPos = 0;
-int currPos = 0;
+int currPos = -1;
 int slapperDelay = 5000; // 5 seconds
+const int LEFT = -1;
+const int RIGHT = 1;
+const int MIDDLE = 0;
+const int stepperSpeed = 100;
 
 // DC Motor: slapper
 const int enblSlap = 12;
@@ -68,6 +72,9 @@ void setup()
   digitalWrite(inSpray2, LOW);
   digitalWrite(inSlap1, LOW);
   digitalWrite(inSlap2, LOW);
+  digitalWrite(DIR,LOW);
+  digitalWrite(ENA,LOW);
+  digitalWrite(PUL,LOW);
   
   Serial.begin(9600);
   Serial.println("Initializing..");
@@ -84,8 +91,14 @@ void loop()
   digitalWrite(inSlap2, LOW);
   if(isOnBed()){
     Serial.println("Someone is on the bed... starting alarm");
-    delay(3000);
-    //2startAlarm();
+    delay(300);
+    xPos = getXPos();
+    Serial.print("Position: ");
+    Serial.println(xPos);
+    startAlarm();
+  }
+  else{
+    Serial.println("No one is on the bed");
   }
   delay (1000);
 }
@@ -134,11 +147,11 @@ bool isOnBed(){
   {
     fsrV5 = fsrADC5 * VCC / 1023.0;
     fsrR5 = R_DIV * (VCC / fsrV5 - 1.0);
-    Serial.println(String(fsrR5));
+    //Serial.println(String(fsrR5));
     delay(50);
   }
   
-  if(fsrR1 < 3000 || fsrR2 < 3000 || fsrR3 < 3000 || fsrR4 < 3000 || fsrR5 <  3000){
+  if((fsrR1 < 50000 || fsrR2 < 50000 || fsrR3 < 50000) && fsrR4 < 50000 && fsrR5 <  50000){
     return true;
   }
 
@@ -186,18 +199,18 @@ int getXPos(){
   if (fsrADC5 != 0) {
     fsrV5 = fsrADC5 * VCC / 1023.0;
     fsrR5 = R_DIV * (VCC / fsrV5 - 1.0);
-    Serial.println(String(fsrR5));
+    //Serial.println(String(fsrR5));
     delay(50);
   }
   
   if(fsrR1 > (fsrR3 + 3000)){
-    return -1;
+    return LEFT;
   }
   if(fsrR3 > (fsrR1 + 3000)){
-    return 1;
+    return RIGHT;
   }
 
-  return 0;
+  return MIDDLE;
 }
 
 void startAlarm(){
@@ -210,7 +223,7 @@ void startAlarm(){
     CurrentTime = millis();
     ElapsedTime = CurrentTime - StartTime;
 
-    if(ElapsedTime < 300000){ // 5 min
+    /*if(ElapsedTime < 300000){ // 5 min
       // Blanket snatcher starts
       Serial.println("Starting blanket snatching");
 
@@ -230,48 +243,48 @@ void startAlarm(){
       digitalWrite(PUL,LOW);
       delayMicroseconds(50);
       delay(5000);
-    }
-    else if(ElapsedTime >= 300000 && ElapsedTime < 600000){ // 10 minutes 
+    }*/
+    if(ElapsedTime < 300000){//else if(ElapsedTime >= 300000 && ElapsedTime < 600000){ // 10 minutes 
       // Pull blanket all the way
-      digitalWrite(DIR,HIGH);
+      /*digitalWrite(DIR,HIGH);
       digitalWrite(ENA,HIGH);
       digitalWrite(PUL,HIGH);
       delayMicroseconds(50);
       digitalWrite(PUL,LOW);
-      delayMicroseconds(50);
+      delayMicroseconds(50);*/
       
       Serial.println("Starting slapper");   
       // Slapper positioning
       xPos = getXPos();
       if(currPos != xPos){
         // Left
-        if(xPos == -1){
-          slapper.setSpeed(100);
+        if(xPos == LEFT){
+          slapper.setSpeed(stepperSpeed);
           slapper.step(-stepsSlapper);
-          if(currPos == 0){
+          if(currPos == MIDDLE){
             delay(slapperDelay); // delay
           }
-          if(currPos == 1){
+          if(currPos == RIGHT){
             delay(2*slapperDelay); // delay
           }
           slapper.setSpeed(0); // stop moving
         }
         // Right
-        else if(xPos == 1){
-          slapper.setSpeed(100);
+        else if(xPos == RIGHT){
+          slapper.setSpeed(stepperSpeed);
           slapper.step(stepsSlapper);
-          if(currPos == 0){
+          if(currPos == MIDDLE){
             delay(slapperDelay); // delay
           }
-          if(currPos == 1){
+          if(currPos == LEFT){
             delay(2*slapperDelay); // delay
           }
           slapper.setSpeed(0); // stop moving
         }
         // Middle
         else{
-          slapper.setSpeed(100);
-          if(currPos == -1){
+          slapper.setSpeed(stepperSpeed);
+          if(currPos == LEFT){
             slapper.step(-stepsSlapper); 
           }
           else{
@@ -280,14 +293,15 @@ void startAlarm(){
           delay(5000); // delay
           slapper.setSpeed(0); // stop moving
         }
+        currPos = xPos;
       }
 
       // Slapping
-      analogWrite(enblSlap, 100);
-      digitalWrite(inSlap1, HIGH);
-      digitalWrite(inSlap2, LOW);
+      //analogWrite(enblSlap, 100);
+      //digitalWrite(inSlap1, HIGH);
+      //digitalWrite(inSlap2, LOW);
     }
-    else if(ElapsedTime >= 900000){ // 15 minutes   
+    /*else if(ElapsedTime >= 900000){ // 15 minutes   
       // Spray fart every 10 seconds
       Serial.println("Starting fart spray");
       digitalWrite(inSpray1, HIGH);
@@ -299,4 +313,6 @@ void startAlarm(){
     }
     // Slapper
     analogWrite(enblSlap, 255); // full speed
+    */
+  }
 }
